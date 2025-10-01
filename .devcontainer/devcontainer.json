@@ -3,9 +3,5 @@
       "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
       "forwardPorts": [8000, 1080],
       "postCreateCommand": "npm install"
-      "features": {
-         "ghcr.io/devcontainers/features/sshd:1": {
-             "version": "latest"
-      }
         }
     }
