@@ -13,6 +13,7 @@
   "dependencies": {
     "ngrok": "^5.0.0-beta.2",
     "proxy-chain": "^2.5.9",
-    "socksv5": "^0.0.6"
+    "socksv5": "^0.0.6",
+    "winston-daily-rotate-file": "^5.0.0"
   }
 }
