@@ -4,7 +4,7 @@ const fs = require('fs');
 const url = require('url');
 const net = require('net');
 const path = require('path');
-const logger = require('./logger'); // See logger.js below
+const logger = require('./logger');
 
 // Load proxies from file (no auth), filter out https and socks4 proxies
 const proxyList = fs.readFileSync('proxies.txt', 'utf-8')
@@ -83,7 +83,7 @@ const httpProxyServer = new ProxyChain.Server({
 
     return {
       upstreamProxyUrl,
-      userInfo: { username },
+      userInfo: { username, requestUrl: request.url },
     };
   },
 
@@ -91,6 +91,16 @@ const httpProxyServer = new ProxyChain.Server({
     if (userInfo && userInfo.username) {
       logUsage(userInfo.username, bytesWritten, bytesRead);
       logger.info(`[HTTP Proxy] User: ${userInfo.username} - Sent: ${bytesWritten} bytes, Received: ${bytesRead} bytes`);
+
+      // Traffic log (structured)
+      logger.info({
+        type: 'http_traffic',
+        user: userInfo.username,
+        url: userInfo.requestUrl,
+        bytesSent: bytesWritten,
+        bytesReceived: bytesRead,
+        timestamp: new Date().toISOString()
+      }, 'Traffic log');
     }
   },
 });
@@ -162,6 +172,16 @@ socksServer.on('proxyConnect', (info, destination, socket, head) => {
       socket.on('close', () => {
         logUsage(user, bytesSent, bytesReceived);
         logger.info(`[SOCKS Proxy] User: ${user} connection closed. Total sent: ${bytesSent} bytes, received: ${bytesReceived} bytes`);
+
+        // Traffic log (structured)
+        logger.info({
+          type: 'socks_traffic',
+          user,
+          destination: `${info.dstAddr}:${info.dstPort}`,
+          bytesSent,
+          bytesReceived,
+          timestamp: new Date().toISOString()
+        }, 'Traffic log');
       });
 
       socket.on('error', (err) => {

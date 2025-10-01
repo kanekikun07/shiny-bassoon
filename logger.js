@@ -3,6 +3,10 @@ require('winston-daily-rotate-file');
 const path = require('path');
 
 const logFormat = format.printf(({ timestamp, level, message }) => {
+  if (typeof message === 'object') {
+    // For JSON messages (traffic logs), stringify nicely
+    return `[${timestamp}] ${level.toUpperCase()}: ${JSON.stringify(message)}`;
+  }
   return `[${timestamp}] ${level.toUpperCase()}: ${message}`;
 });
 
@@ -28,11 +32,25 @@ const transportFile = new transports.DailyRotateFile({
   )
 });
 
+const transportTrafficFile = new transports.DailyRotateFile({
+  filename: path.join('logs', 'traffic-%DATE%.log'),
+  datePattern: 'YYYY-MM-DD',
+  zippedArchive: true,
+  maxSize: '50m',
+  maxFiles: '30d',
+  level: 'info',
+  format: format.combine(
+    format.timestamp(),
+    format.json()
+  )
+});
+
 const logger = createLogger({
   level: 'debug',
   transports: [
     transportConsole,
-    transportFile
+    transportFile,
+    transportTrafficFile,
   ],
   exitOnError: false,
 });
