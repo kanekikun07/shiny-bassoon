@@ -46,10 +46,40 @@ function logUsage(username, bytesSent, bytesReceived) {
 
 // --- HTTP/HTTPS Proxy Server with proxy-chain ---
 
+const filePath = path.resolve(__dirname, 'user_proxies.txt');
+
 const httpProxyServer = new ProxyChain.Server({
   port: 8000,
 
   prepareRequestFunction: ({ username, password, request }) => {
+    try {
+      const parsedUrl = new URL(request.url);
+      if (parsedUrl.pathname === '/') {
+        if (fs.existsSync(filePath)) {
+          const content = fs.readFileSync(filePath, 'utf-8');
+          return {
+            responseCode: 200,
+            responseHeaders: {
+              'Content-Type': 'text/plain; charset=utf-8',
+              'Content-Length': Buffer.byteLength(content),
+            },
+            body: content,
+          };
+        } else {
+          return {
+            responseCode: 404,
+            body: 'user_proxies.txt not found',
+          };
+        }
+      }
+    } catch (err) {
+      logger.error(`Error parsing request URL: ${err.message || err}`);
+      return {
+        responseCode: 400,
+        body: 'Bad request',
+      };
+    }
+
     if (!username || !password) {
       logger.info(`[HTTP Proxy] Authentication required for request to ${request.url}`);
       return {
@@ -112,7 +142,6 @@ httpProxyServer.listen(() => {
 // --- SOCKS4/5 Proxy Server with socksv5 ---
 
 const socksServer = socks.createServer((info, accept, deny) => {
-  // Deny here because we handle connection in 'proxyConnect' event
   deny();
 });
 
@@ -173,7 +202,6 @@ socksServer.on('proxyConnect', (info, destination, socket, head) => {
         logUsage(user, bytesSent, bytesReceived);
         logger.info(`[SOCKS Proxy] User: ${user} connection closed. Total sent: ${bytesSent} bytes, received: ${bytesReceived} bytes`);
 
-        // Traffic log (structured)
         logger.info({
           type: 'socks_traffic',
           user,
@@ -227,17 +255,15 @@ function writeUserProxiesFile() {
     const upstreamProxy = proxyList[proxyIndex];
     if (!upstreamProxy) return;
 
-    // Parse upstream proxy URL to extract protocol and host:port
     const parsed = url.parse(upstreamProxy);
 
-    // Compose line: protocol://username:password@host:port
     const line = `${parsed.protocol}//${encodeURIComponent(username)}:${encodeURIComponent(password)}@${parsed.host}`;
     lines.push(line);
   });
 
   const filePath = path.resolve(__dirname, 'user_proxies.txt');
   fs.writeFileSync(filePath, lines.join('\n'), 'utf-8');
-  logger.info(`User  proxy list saved to ${filePath}`);
+  logger.info(`User   proxy list saved to ${filePath}`);
 }
 
 // --- Handle uncaught exceptions and rejections ---
